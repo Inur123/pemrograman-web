@@ -1,22 +1,49 @@
 <?php
 session_start();
+
+$max_attempts = 3;
+$lockout_time = 60; // in seconds
+
 if (isset($_SESSION['nim'])) {
   header("Location: dashboard.php");
   exit;
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+// Initialize session variables if not set
+if (!isset($_SESSION['login_attempts'])) {
+  $_SESSION['login_attempts'] = 0;
+}
+
+if (!isset($_SESSION['last_attempt_time'])) {
+  $_SESSION['last_attempt_time'] = 0;
+}
+
+$remaining_attempts = $max_attempts - $_SESSION['login_attempts'];
+$lockout = false;
+
+if ($_SESSION['login_attempts'] >= $max_attempts) {
+  $elapsed_time = time() - $_SESSION['last_attempt_time'];
+  if ($elapsed_time < $lockout_time) {
+    $wait_time = $lockout_time - $elapsed_time;
+    $lockout = true;
+  } else {
+    $_SESSION['login_attempts'] = 0;
+    $remaining_attempts = $max_attempts;
+    $lockout = false;
+  }
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !$lockout) {
   require_once "koneksi.php";
 
   $nim = $_POST['nim'];
   $password = $_POST['password'];
 
-  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND approved = 1"; // Hanya mahasiswa yang memiliki nilai approved = 1 yang diizinkan untuk login
+  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND approved = 1";
   $result = $conn->query($sql);
 
   if ($result->num_rows == 1) {
     $row = $result->fetch_assoc();
-    // Verifikasi password
     if (password_verify($password, $row['password'])) {
       $_SESSION['nim'] = $nim;
       $_SESSION['role'] = $row['role'];
@@ -24,13 +51,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       exit;
     } else {
       $error = "NIM atau password salah";
+      $_SESSION['login_attempts']++;
+      $_SESSION['last_attempt_time'] = time();
     }
   } else {
     $error = "NIM atau password salah atau akun belum diizinkan untuk login";
+    $_SESSION['login_attempts']++;
+    $_SESSION['last_attempt_time'] = time();
   }
 }
-?>
 
+$remaining_attempts = $max_attempts - $_SESSION['login_attempts'];
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -44,7 +76,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
-    /* Custom CSS for styling */
     body {
       background-color: #f8f9fa;
       padding-top: 50px;
@@ -118,12 +149,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
           </div>
           <div class="text-center">
-            <button type="submit" class="btn btn-primary col-12">Login</button>
+            <button type="submit" class="btn btn-primary col-12" <?php echo $_SESSION['login_attempts'] >= $max_attempts ? 'disabled' : ''; ?>>Login</button>
           </div>
         </form>
-
-        <p class="text-center mt-3">Belum punya akun? <a href="register.php">Daftar disini</a></p>
-        <p class="text-center mt-3" style="font-size: small; color: red;">Setelah register akun belum bisa gunakan/hubungi admin</p>
+        <?php if ($lockout) : ?>
+          <p class="text-center mt-2">Terlalu banyak percobaan gagal. Silakan coba lagi dalam <span id="countdown" style="color: red;"><?php echo $wait_time; ?></span> detik.</p>
+        <?php else : ?>
+          <p class="text-center mt-2">Kesempatan login tersisa: <span style="color: red;"><?php echo $remaining_attempts; ?></span></p>
+        <?php endif; ?>
+        <p class="text-center">Belum punya akun? <a href="register.php">Daftar disini</a></p>
+        <p class="text-center" style="font-size: small; color: red;">Setelah register akun belum bisa gunakan/hubungi admin</p>
       </div>
     </div>
   </div>
@@ -131,22 +166,56 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <script>
     // Menutup alert secara otomatis setelah 5 detik
     setTimeout(function() {
-      document.querySelector('.error-alert').style.display = 'none';
+      const errorAlert = document.querySelector('.error-alert');
+      if (errorAlert) {
+        errorAlert.style.display = 'none';
+      }
     }, 5000);
-  </script>
-  <!-- Bootstrap Bundle with Popper -->
-  <script>
+
     function togglePasswordVisibility() {
       const passwordInput = document.querySelector('#password');
-      // Dapatkan jenis tipe input
       const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      // Setel tipe input baru
       passwordInput.setAttribute('type', type);
-      // Ubah ikon mata
       const eyeIcon = document.querySelector('#togglePassword');
       eyeIcon.classList.toggle('bi-eye');
       eyeIcon.classList.toggle('bi-eye-slash');
     }
+
+    // Countdown timer for lockout
+    <?php if ($lockout) : ?>
+      let countdownTime = <?php echo $wait_time; ?>;
+      const countdownElement = document.getElementById('countdown');
+      const countdownInterval = setInterval(() => {
+        countdownTime--;
+        countdownElement.textContent = countdownTime;
+        if (countdownTime <= 0) {
+          clearInterval(countdownInterval);
+          location.reload();
+        }
+      }, 1000);
+    <?php else : ?>
+      let remainingAttempts = <?php echo $remaining_attempts; ?>;
+      const button = document.querySelector('button[type="submit"]');
+      const attemptsElement = document.querySelector('.text-center.mt-3');
+
+      const checkAttemptsInterval = setInterval(() => {
+        if (remainingAttempts <= 0) {
+          clearInterval(checkAttemptsInterval);
+          button.disabled = true;
+          let countdownTime = <?php echo $lockout_time; ?>;
+          attemptsElement.innerHTML = `Terlalu banyak percobaan gagal. Silakan coba lagi dalam <span id="countdown" style="color: red;">${countdownTime}</span> detik.`;
+
+          const countdownInterval = setInterval(() => {
+            countdownTime--;
+            document.getElementById('countdown').textContent = countdownTime;
+            if (countdownTime <= 0) {
+              clearInterval(countdownInterval);
+              location.reload();
+            }
+          }, 1000);
+        }
+      }, 1000);
+    <?php endif; ?>
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>

@@ -130,15 +130,9 @@ if ($_SESSION['role'] == 'admin') {
                     echo '<button class="btn btn-primary btn-sm btn-edit" data-bs-toggle="modal" data-bs-target="#editMahasiswaModal-' . $row['id'] . '">Edit</button>';
                     echo ' <a href="#" class="btn btn-danger btn-sm" onclick="showDeleteConfirmationModal(\'' . $row['id'] . '\')">Hapus</a>';
                     echo '<div class="form-check form-switch">';
-                    echo '<input class="form-check-input" type="radio" name="approvedRadio' . $row['id'] . '" id="approvedRadio' . $row['id'] . '" value="1" onclick="toggleApproval(\'' . $row['id'] . '\')" ' . ($row['approved'] == 1 ? 'checked' : '') . '>';
-                    if ($row['approved'] == 1) {
-                      echo '<label class="form-check-label" for="approvedRadio' . $row['id'] . '" style=" color: green;">Approved</label>';
-                    } else {
-                      echo '<label class="form-check-label" for="approvedRadio' . $row['id'] . '" style=" color: red;">Not Approved</label>';
-                    }
+                    echo '<input class="form-check-input" type="radio" name="approvedRadio' . $row['id'] . '" id="approvedRadio' . $row['id'] . '" value="' . ($row['approved'] == 1 ? '1' : '0') . '" onclick="toggleApproval(' . $row['id'] . ')" ' . ($row['approved'] == 1 ? 'checked' : '') . '>';
+                    echo '<label class="form-check-label" for="approvedRadio' . $row['id'] . '">' . ($row['approved'] == 1 ? 'Approved' : 'Not Approved') . '</label>';
                     echo '</div>';
-
-
 
                     echo '</td>';
                     echo '</tr>';
@@ -151,6 +145,7 @@ if ($_SESSION['role'] == 'admin') {
                 }
                 ?>
               </tbody>
+
 
             </table>
           </div>
@@ -189,35 +184,36 @@ if ($_SESSION['role'] == 'admin') {
     <!-- Bagian JavaScript -->
     <script>
       function toggleApproval(id) {
+        // Mendapatkan nilai radio button yang dipilih
+        var approvedValue = document.querySelector('input[name="approvedRadio' + id + '"]:checked').value;
+
+        // Mengubah nilai radio button untuk memungkinkan perubahan dari "Approved" ke "Not Approved" dan sebaliknya
+        var newApprovedValue = (approvedValue === '1') ? '0' : '1';
+
+        // Kirim permintaan AJAX ke server
         var xhr = new XMLHttpRequest();
-        xhr.open("POST", "toggle_approval.php", true);
-        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-              // Handle response if needed
-              console.log(xhr.responseText);
-              // Refresh halaman jika perubahan berhasil
-              location.reload(); // Contoh: refresh halaman
-            } else {
-              // Tampilkan pesan kesalahan jika terjadi kesalahan dalam permintaan AJAX
-              console.error("Error: " + xhr.status);
-            }
+        xhr.open('POST', 'update_status.php', true);
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            // Berhasil memperbarui status
+            console.log(xhr.responseText);
+            // Perbarui teks label
+            var label = document.querySelector('label[for="approvedRadio' + id + '"]');
+            label.textContent = (newApprovedValue == '1') ? 'Approved' : 'Not Approved';
+            // Perbarui nilai input radio
+            var radio = document.getElementById('approvedRadio' + id);
+            radio.value = newApprovedValue;
+            // Perbarui status checked input radio
+            radio.checked = (newApprovedValue == '1');
+          } else {
+            // Gagal memperbarui status
+            console.log('Gagal memperbarui status.');
           }
         };
-
-        // Determine the new status to be sent based on the current status
-        var currentStatus = document.getElementById("approvedRadio" + id).checked;
-        var newStatus = currentStatus ? 0 : 1; // Toggle the status
-
-        xhr.send("id=" + id + "&status=" + newStatus); // Send both ID and new status to the server
+        xhr.send('id=' + id + '&approved=' + newApprovedValue);
       }
     </script>
-
-
-
-
-
   </body>
 
   </html>
