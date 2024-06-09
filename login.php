@@ -11,7 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $nim = $_POST['nim'];
   $password = $_POST['password'];
 
-  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim'";
+  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND approved = 1"; // Hanya mahasiswa yang memiliki nilai approved = 1 yang diizinkan untuk login
   $result = $conn->query($sql);
 
   if ($result->num_rows == 1) {
@@ -26,7 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       $error = "NIM atau password salah";
     }
   } else {
-    $error = "NIM atau password salah";
+    $error = "NIM atau password salah atau akun belum diizinkan untuk login";
   }
 }
 ?>
@@ -77,14 +77,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <?php if (isset($error)) {
           echo "<p class='text-danger text-center'>$error</p>";
         } ?>
+        <p class="text-center mt-3">Belum punya akun? <a href="register.php">Daftar disini</a></p>
       </div>
     </div>
+  </div>
   </div>
   <!-- Bootstrap Bundle with Popper -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
-
-</html>
-
 
 </html>

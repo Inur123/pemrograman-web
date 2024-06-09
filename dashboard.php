@@ -17,33 +17,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['tambah'])) {
   $nama = $_POST['nama'];
   $password = password_hash($_POST['password'], PASSWORD_DEFAULT); // Enkripsi password
   $role = 'mahasiswa'; // Atur peran secara default ke 'mahasiswa'
+  // Periksa apakah NIM sudah ada di database
+  $sql_check_nim = "SELECT * FROM Mahasiswa WHERE nim = '$nim'";
+  $result_check_nim = $conn->query($sql_check_nim);
+  if ($result_check_nim->num_rows > 0) {
+    $error = "<span style='color: red;'>NIM sudah ada. Harap gunakan NIM lain.</span>";
+  } else {
+    // Tangani unggahan file foto
+    $foto = $_FILES['foto']['name'];
+    $foto_tmp = $_FILES['foto']['tmp_name'];
+    $foto_path = ""; // Atur nilai awal foto_path menjadi string kosong
 
-  // Tangani unggahan file foto
-  $foto = $_FILES['foto']['name'];
-  $foto_tmp = $_FILES['foto']['tmp_name'];
-  $foto_path = ""; // Atur nilai awal foto_path menjadi string kosong
+    // Cek apakah ada file foto yang diunggah
+    if (!empty($foto)) { // Tambahkan pengecekan apakah $foto tidak kosong
+      $foto_path = "uploads/" . $foto; // Lokasi penyimpanan foto
 
-  // Cek apakah ada file foto yang diunggah
-  if (!empty($foto)) { // Tambahkan pengecekan apakah $foto tidak kosong
-    $foto_path = "uploads/" . $foto; // Lokasi penyimpanan foto
-
-    if (move_uploaded_file($foto_tmp, $foto_path)) {
-      // Jika file berhasil diunggah, simpan path foto ke database
+      if (move_uploaded_file($foto_tmp, $foto_path)) {
+        // Jika file berhasil diunggah, simpan path foto ke database
+      } else {
+        $error = "Gagal mengunggah foto. Silakan coba lagi.";
+      }
     } else {
-      $error = "Gagal mengunggah foto. Silakan coba lagi.";
+      // Jika pengguna tidak mengunggah foto, gunakan gambar default sebagai placeholder
+      $foto_path = "images/default-image.webp";
     }
-  } else {
-    // Jika pengguna tidak mengunggah foto, gunakan gambar default sebagai placeholder
-    $foto_path = "images/default-image.webp";
-  }
 
-  // Simpan data mahasiswa ke database
-  $sql = "INSERT INTO Mahasiswa (nim, nama, password, role, foto) VALUES ('$nim', '$nama', '$password', '$role', '$foto_path')";
-  if ($conn->query($sql) === TRUE) {
-    header("Location: dashboard.php");
-    exit;
-  } else {
-    $error = "Gagal menambahkan mahasiswa. Silakan coba lagi.";
+    // Jika NIM belum ada di database, lanjutkan proses penyimpanan data
+    $sql = "INSERT INTO Mahasiswa (nim, nama, password, role, foto) VALUES ('$nim', '$nama', '$password', '$role', '$foto_path')";
+    if ($conn->query($sql) === TRUE) {
+      header("Location: dashboard.php");
+      exit;
+    } else {
+      $error = "Gagal menambahkan mahasiswa. Silakan coba lagi.";
+    }
   }
 }
 
@@ -123,6 +129,17 @@ if ($_SESSION['role'] == 'admin') {
                     echo '<td>';
                     echo '<button class="btn btn-primary btn-sm btn-edit" data-bs-toggle="modal" data-bs-target="#editMahasiswaModal-' . $row['id'] . '">Edit</button>';
                     echo ' <a href="#" class="btn btn-danger btn-sm" onclick="showDeleteConfirmationModal(\'' . $row['id'] . '\')">Hapus</a>';
+                    echo '<div class="form-check form-switch">';
+                    echo '<input class="form-check-input" type="radio" name="approvedRadio' . $row['id'] . '" id="approvedRadio' . $row['id'] . '" value="1" onclick="toggleApproval(\'' . $row['id'] . '\')" ' . ($row['approved'] == 1 ? 'checked' : '') . '>';
+                    if ($row['approved'] == 1) {
+                      echo '<label class="form-check-label" for="approvedRadio' . $row['id'] . '" style=" color: green;">Approved</label>';
+                    } else {
+                      echo '<label class="form-check-label" for="approvedRadio' . $row['id'] . '" style=" color: red;">Not Approved</label>';
+                    }
+                    echo '</div>';
+
+
+
                     echo '</td>';
                     echo '</tr>';
                     // Modal untuk edit
@@ -169,6 +186,38 @@ if ($_SESSION['role'] == 'admin') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bagian JavaScript -->
+    <script>
+      function toggleApproval(id) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "toggle_approval.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              // Handle response if needed
+              console.log(xhr.responseText);
+              // Refresh halaman jika perubahan berhasil
+              location.reload(); // Contoh: refresh halaman
+            } else {
+              // Tampilkan pesan kesalahan jika terjadi kesalahan dalam permintaan AJAX
+              console.error("Error: " + xhr.status);
+            }
+          }
+        };
+
+        // Determine the new status to be sent based on the current status
+        var currentStatus = document.getElementById("approvedRadio" + id).checked;
+        var newStatus = currentStatus ? 0 : 1; // Toggle the status
+
+        xhr.send("id=" + id + "&status=" + newStatus); // Send both ID and new status to the server
+      }
+    </script>
+
+
+
+
+
   </body>
 
   </html>
