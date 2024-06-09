@@ -11,19 +11,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $nim = $_POST['nim'];
   $password = $_POST['password'];
 
-  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND password = '$password'";
+  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim'";
   $result = $conn->query($sql);
 
   if ($result->num_rows == 1) {
     $row = $result->fetch_assoc();
-    $_SESSION['nim'] = $nim;
-    $_SESSION['role'] = $row['role'];
-    header("Location: dashboard.php");
+    // Verifikasi password
+    if (password_verify($password, $row['password'])) {
+      $_SESSION['nim'] = $nim;
+      $_SESSION['role'] = $row['role'];
+      header("Location: dashboard.php");
+      exit;
+    } else {
+      $error = "NIM atau password salah";
+    }
   } else {
     $error = "NIM atau password salah";
   }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
