@@ -34,30 +34,56 @@ if ($_SESSION['login_attempts'] >= $max_attempts) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && !$lockout) {
-  require_once "koneksi.php";
+  $recaptcha_secret = '6LclGgUqAAAAAODhjIrD3mY05FNCl3TLziK-1Ryu';
+  $recaptcha_response = $_POST['g-recaptcha-response'];
 
-  $nim = $_POST['nim'];
-  $password = $_POST['password'];
+  // Verify reCAPTCHA response
+  $recaptcha_url = 'https://www.google.com/recaptcha/api/siteverify';
+  $recaptcha_data = array(
+    'secret' => $recaptcha_secret,
+    'response' => $recaptcha_response
+  );
 
-  $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND approved = 1";
-  $result = $conn->query($sql);
+  $options = array(
+    'http' => array(
+      'method' => 'POST',
+      'header' => 'Content-type: application/x-www-form-urlencoded',
+      'content' => http_build_query($recaptcha_data)
+    )
+  );
 
-  if ($result->num_rows == 1) {
-    $row = $result->fetch_assoc();
-    if (password_verify($password, $row['password'])) {
-      $_SESSION['nim'] = $nim;
-      $_SESSION['role'] = $row['role'];
-      header("Location: dashboard.php");
-      exit;
+  $context = stream_context_create($options);
+  $recaptcha_verify = file_get_contents($recaptcha_url, false, $context);
+  $recaptcha_success = json_decode($recaptcha_verify);
+
+  if ($recaptcha_success->success) {
+    require_once "koneksi.php";
+
+    $nim = $_POST['nim'];
+    $password = $_POST['password'];
+
+    $sql = "SELECT * FROM Mahasiswa WHERE nim = '$nim' AND approved = 1";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows == 1) {
+      $row = $result->fetch_assoc();
+      if (password_verify($password, $row['password'])) {
+        $_SESSION['nim'] = $nim;
+        $_SESSION['role'] = $row['role'];
+        header("Location: dashboard.php");
+        exit;
+      } else {
+        $error = "NIM atau password salah";
+        $_SESSION['login_attempts']++;
+        $_SESSION['last_attempt_time'] = time();
+      }
     } else {
-      $error = "NIM atau password salah";
+      $error = "NIM atau password salah atau akun belum diizinkan untuk login";
       $_SESSION['login_attempts']++;
       $_SESSION['last_attempt_time'] = time();
     }
   } else {
-    $error = "NIM atau password salah atau akun belum diizinkan untuk login";
-    $_SESSION['login_attempts']++;
-    $_SESSION['last_attempt_time'] = time();
+    $error = "reCAPTCHA verification failed. Please try again.";
   }
 }
 
@@ -73,6 +99,7 @@ $remaining_attempts = $max_attempts - $_SESSION['login_attempts'];
   <title>Login</title>
   <!-- Bootstrap CSS -->
   <link rel="icon" href="images/logo1.png" type="images/x-icon">
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
@@ -148,6 +175,7 @@ $remaining_attempts = $max_attempts - $_SESSION['login_attempts'];
               </span>
             </div>
           </div>
+          <div class="g-recaptcha mb-3" data-sitekey="6LclGgUqAAAAAJDRTMr1FiAuRFYqowz5F_wCGXQG"></div>
           <div class="text-center">
             <button type="submit" class="btn btn-primary col-12" <?php echo $_SESSION['login_attempts'] >= $max_attempts ? 'disabled' : ''; ?>>Login</button>
           </div>

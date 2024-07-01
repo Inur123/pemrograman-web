@@ -67,6 +67,7 @@ if ($_SESSION['role'] == 'admin') {
     <link rel="icon" href="images/logo1.png" type="images/x-icon">
     <title>Dashboard Admin</title>
     <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
       .container {
@@ -154,18 +155,23 @@ if ($_SESSION['role'] == 'admin') {
         <!-- Sisi Kanan: Form Tambah Mahasiswa Baru -->
         <div class="col-md-6 right-side">
           <h3 class="mt-2">Tambah Mahasiswa Baru</h3>
-          <form method="post" action="" enctype="multipart/form-data">
+          <form method="post" action="" enctype="multipart/form-data" onsubmit="return validateForm()">
             <div class="mb-3">
               <label for="nim" class="form-label">NIM:</label>
-              <input type="text" class="form-control" id="nim" name="nim" required>
+              <input type="text" class="form-control" id="nim" name="nim" value="<?php echo isset($_POST['nim']) ? $_POST['nim'] : ''; ?>" required>
             </div>
             <div class="mb-3">
               <label for="nama" class="form-label">Nama:</label>
-              <input type="text" class="form-control" id="nama" name="nama" required>
+              <input type="text" class="form-control" id="nama" name="nama" value="<?php echo isset($_POST['nama']) ? $_POST['nama'] : ''; ?>" required>
             </div>
             <div class="mb-3">
               <label for="password" class="form-label">Password:</label>
-              <input type="password" class="form-control" id="password" name="password" required>
+              <div class="input-group">
+                <input type="password" class="form-control" id="password" name="password" value="<?php echo isset($_POST['password']) ? $_POST['password'] : ''; ?>" required>
+                <span class="input-group-text" style="cursor: pointer;" onclick="togglePasswordVisibility()">
+                  <i class="bi bi-eye" id="togglePassword"></i>
+                </span>
+              </div>
             </div>
             <div class="mb-3">
               <label for="foto" class="form-label">Foto:</label>
@@ -177,8 +183,32 @@ if ($_SESSION['role'] == 'admin') {
             echo "<p>$error</p>";
           } ?>
         </div>
+
       </div>
     </div>
+    <script>
+      function togglePasswordVisibility() {
+        const passwordInput = document.querySelector('#password');
+        // Dapatkan jenis tipe input
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        // Setel tipe input baru
+        passwordInput.setAttribute('type', type);
+        // Ubah ikon mata
+        const eyeIcon = document.querySelector('#togglePassword');
+        eyeIcon.classList.toggle('bi-eye');
+        eyeIcon.classList.toggle('bi-eye-slash');
+      }
+    </script>
+    <script>
+      function validateForm() {
+        var password = document.getElementById("password").value;
+        if (password.length < 6) {
+          alert("Password harus terdiri dari minimal 6 karakter.");
+          return false;
+        }
+        return true;
+      }
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Bagian JavaScript -->
@@ -247,9 +277,54 @@ if ($_SESSION['role'] == 'admin') {
   <body>
     <div class="container">
       <h2 class="mt-5">Dashboard Mahasiswa</h2>
-      <p>Selamat datang, <?php echo $row['nama']; ?>!</p>
-      <p>NIM: <?php echo $row['nim']; ?></p>
+      <p>Selamat datang, <?php echo htmlspecialchars($row['nama'] ?? ''); ?>!</p>
+
+      <?php if (isset($row['nim'])) : ?>
+        <p>NIM: <?php echo htmlspecialchars($row['nim']); ?></p>
+      <?php else : ?>
+        <!-- Tampilkan pesan bahwa NIM tidak tersedia -->
+        <p>NIM tidak tersedia.</p>
+      <?php endif; ?>
+
+
       <a href="logout.php" class="btn btn-danger">Logout</a>
+      <button type="button" class="btn btn-primary btn-edit" data-bs-toggle="modal" data-bs-target="#editModal<?php echo $row['id']; ?>">
+        Edit
+      </button>
+      <!-- Modal Edit -->
+      <div class="modal fade" id="editModal<?php echo $row['id']; ?>" tabindex="-1" aria-labelledby="editModalLabel<?php echo $row['id']; ?>" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editModalLabel<?php echo $row['id']; ?>">Edit Mahasiswa</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <form method="post" action="proses_edit_mahasiswa.php" enctype="multipart/form-data">
+                <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
+                <div class="mb-3">
+                  <label for="nimEdit" class="form-label">NIM:</label>
+                  <input type="text" class="form-control" id="nimEdit" name="nim" value="<?php echo htmlspecialchars($row['nim'] ?? ''); ?>" required>
+                </div>
+                <div class="mb-3">
+                  <label for="namaEdit" class="form-label">Nama:</label>
+                  <input type="text" class="form-control" id="namaEdit" name="nama" value="<?php echo htmlspecialchars($row['nama'] ?? ''); ?>" required>
+                </div>
+                <div class="mb-3">
+                  <label for="passwordEdit" class="form-label">Password:</label>
+                  <input type="password" class="form-control" id="passwordEdit" name="password">
+                </div>
+                <div class="mb-3">
+                  <label for="fotoEdit" class="form-label">Foto:</label>
+                  <input type="file" class="form-control" id="fotoEdit" name="foto" accept="image/*">
+                  <input type="hidden" name="existing_foto_path" value="<?php echo htmlspecialchars($row['foto'] ?? ''); ?>">
+                </div>
+                <button type="submit" class="btn btn-primary" name="edit">Simpan Perubahan</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- Bootstrap Bundle with Popper -->
 
